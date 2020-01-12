@@ -2,6 +2,7 @@
 from scipy.spatial import distance as dist
 from imutils import face_utils
 from threading import Thread
+from util.activity_tracker import ActivityTracker
 import numpy as np
 import playsound
 import argparse
@@ -10,9 +11,33 @@ import time
 import dlib
 import cv2
 
-def sound_alarm(path):
-	# play an alarm sound
-	playsound.playsound(path)
+# Check if a point is inside a rectangle
+def rect_contains(rect, point) :
+    if point[0] < rect[0] :
+        return False
+    elif point[1] < rect[1] :
+        return False
+    elif point[0] > rect[2] :
+        return False
+    elif point[1] > rect[3] :
+        return False
+    return True
+
+# Draw delaunay triangles
+def draw_delaunay(img, subdiv, delaunay_color ) :
+    triangleList = subdiv.getTriangleList()
+    size = img.shape
+    r = (0, 0, size[1], size[0])
+ 
+    for t in triangleList :
+        pt1 = (t[0], t[1])
+        pt2 = (t[2], t[3])
+        pt3 = (t[4], t[5])
+
+        if rect_contains(r, pt1) and rect_contains(r, pt2) and rect_contains(r, pt3) :         
+            cv2.line(img, pt1, pt2, delaunay_color, 1)
+            cv2.line(img, pt2, pt3, delaunay_color, 1)
+            cv2.line(img, pt3, pt1, delaunay_color, 1)
 
 def eye_aspect_ratio(eye):
 	# compute the euclidean distances between the two sets of
@@ -64,6 +89,9 @@ print("[INFO] starting video stream thread...")
 # vs = VideoStream(src=args["webcam"]).start()
 cap = cv2.VideoCapture(0)
 time.sleep(1.0)
+last_iteration = time.time()
+
+tracker = ActivityTracker()
 
 # loop over frames from the video stream
 while True:
@@ -98,6 +126,25 @@ while True:
 									(shape[48, :]),     # Left Mouth corner
 									(shape[54, :])      # Right mouth corner
 								], dtype="double")
+		
+		many_points = np.array([(shape[i,:]) for i in range(68)], dtype="double")
+								# 	(shape[0, :]),     
+								# 	(shape[3, :]),     
+								# 	(shape[13, :]),    
+								# 	(shape[16, :]),    
+								# 	(shape[29, :]),    
+								# 	(shape[30, :]),    
+								# 	(shape[17, :]),     
+								# 	(shape[21, :]),     
+								# 	(shape[26, :]),     
+								# 	(shape[22, :]),     
+								# 	(shape[33, :]),     # Nose tip
+								# 	(shape[8,  :]),     # Chin
+								# 	(shape[36, :]),     # Left eye left corner
+								# 	(shape[45, :]),     # Right eye right corne
+								# 	(shape[48, :]),     # Left Mouth corner
+								# 	(shape[54, :])      # Right mouth corner
+								# ], dtype="double")
 		# 3D model points.
 		model_points = np.array([
 									(0.0, 0.0, 0.0),             # Nose tip
@@ -116,23 +163,32 @@ while True:
 								[0, focal_length, center[1]],
 								[0, 0, 1]], dtype = "double"
 								)
-		print ("Camera Matrix :\n {0}".format(camera_matrix))
+		# print ("Camera Matrix :\n {0}".format(camera_matrix))
 
 		dist_coeffs = np.zeros((4,1)) # Assuming no lens distortion
 		(success, rotation_vector, translation_vector) = cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
-		print ("Rotation Vector:\n {0}".format(rotation_vector))
-		print ("Translation Vector:\n {0}".format(translation_vector))
+		# print ("Rotation Vector:\n {0}".format(rotation_vector))
+		# print ("Translation Vector:\n {0}".format(translation_vector))
 		
 		# Project a 3D point (0, 0, 1000.0) onto the image plane.
 		# We use this to draw a line sticking out of the nose
 		(nose_end_point2D, jacobian) = cv2.projectPoints(np.array([(0.0, 0.0, 500.0)]), rotation_vector, translation_vector, camera_matrix, dist_coeffs)
 		
-		for p in image_points:
-			cv2.circle(frame, (int(p[0]), int(p[1])), 3, (0,255,0), -1)
+		for p in many_points:
+			cv2.circle(frame, (int(p[0]), int(p[1])), 2, (0,255,0), -1)
 
 		p1 = ( int(image_points[0][0]), int(image_points[0][1]))
 		p2 = ( int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
 		
+		diff = (p1[0] - p2[0], p1[1] - p2[1])
+		sq_dist = diff[0] * diff[0] + diff[1] * diff[1]
+		
+		if sq_dist > 6000:
+			tracker.start_activity("Distracted")
+			cv2.putText(frame, "DISTRACTION ALERT!", (10, 60),
+					cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+		else:
+			tracker.start_activity("Focused")
 		cv2.arrowedLine(frame, p1, p2, (0,255,0), 2) 
 		
 		leftEye = shape[lStart:lEnd]
@@ -144,13 +200,6 @@ while True:
 		# average the eye aspect ratio together for both eyes
 		ear = (leftEAR + rightEAR) / 2.0
 
-		# compute the convex hull for the left and right eye, then
-		# visualize each of the eyes
-		leftEyeHull = cv2.convexHull(leftEye)
-		rightEyeHull = cv2.convexHull(rightEye)
-		cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-		cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
-
 		# check to see if the eye aspect ratio is below the blink
 		# threshold, and if so, increment the blink frame counter
 		if ear < EYE_AR_THRESH:
@@ -158,19 +207,45 @@ while True:
 			if COUNTER >= EYE_AR_CONSEC_FRAMES:
 				if not ALARM_ON:
 					ALARM_ON = True
-
+				tracker.start_activity("Drowsy")
 				cv2.putText(frame, "DROWSINESS ALERT!", (10, 30),
 					cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 		else:
+			tracker.start_activity("Focused")
 			COUNTER = 0
 			ALARM_ON = False
 
 		# draw the computed eye aspect ratio on the frame to help
 		# with debugging and setting the correct eye aspect ratio
 		# thresholds and frame counters
-		cv2.putText(frame, "EAR: {:.2f}".format(ear), (300, 30),
+		cv2.putText(frame, "Eye Aspect Ratio: {:.2f}".format(ear), (330, 420),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
- 
+
+		cv2.putText(frame, "Head Vector: {0}".format(rotation_vector), (80, 450),
+			cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+		try:
+			delauney_rect = (0, 0, size[1], size[0])
+			subdiv = cv2.Subdiv2D(delauney_rect)
+			
+			for p in many_points:
+				subdiv.insert((int(p[0]), int(p[1])))
+			
+			draw_delaunay(frame, subdiv, (0, 100, 0))
+		except:
+			print("error drawing delaunay")
+		
+		# compute the convex hull for the left and right eye, then
+		# visualize each of the eyes
+		leftEyeHull = cv2.convexHull(leftEye)
+		rightEyeHull = cv2.convexHull(rightEye)
+		cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 128), 1)
+		cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 128), 1)
+
+	if time.time() - last_iteration > 1:
+		tracker.print_activities()
+		last_iteration = time.time()
+
 	# show the frame
 	cv2.imshow("Frame", frame)
 	key = cv2.waitKey(1) & 0xFF
