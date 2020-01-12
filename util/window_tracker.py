@@ -1,8 +1,8 @@
 import pygetwindow as gw
 import time
+from util.activity_tracker import ActivityTracker
 
 while True:
-    # windows = [s for s in gw.getAllTitles() if s]
     top_window = gw.getActiveWindow().title.lower()
 
     known_apps = [' - google chrome', ' - visual studio code', ' - word', ' - one note', ' - powerpoint', ' - notepad', ' - foxit reader']
