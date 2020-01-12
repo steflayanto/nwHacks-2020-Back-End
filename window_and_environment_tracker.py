@@ -12,7 +12,8 @@ total_tracker = Counter()
 
 tracker = ActivityTracker()
 
-url = "https://httpbin.org/post"
+# url = "https://httpbin.org/post"
+url = r"http://localhost:5000"
 
 def update_tracker(top_window):
     known_apps = [' - visual studio code', ' - word', ' - one note', ' - powerpoint', ' - notepad', ' - foxit reader']
@@ -84,8 +85,13 @@ while True:
         cap.release()
 
         print("Sending Json")
-        r = requests.post(url, data=json.dumps(data))
-        print(r.text)
+        try:
+            headers = {'Content-type': 'application/json'};
+            r = requests.post(url, data=json.dumps(data), headers=headers)
+            print(json.dumps(data))
+        except:
+            print("Failed to post")
+            
     
     window = gw.getActiveWindow()
     if not window or not window.title:
