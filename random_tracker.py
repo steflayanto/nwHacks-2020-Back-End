@@ -1,30 +1,5 @@
 import random, time
-
-class Timer:
-    running = False
-    time_elapsed = 0
-    time_started = 0
-
-    def start(self):
-        # If timer is not already running
-        if not self.running:
-            self.time_started = time.time()
-            self.running = True
-    
-    def stop(self):
-        #If timer is already running
-        if self.running:
-            self.running=False
-            self.time_elapsed += time.time() - self.time_started
-        return self.time_elapsed
-
-    def value(self):
-        return self.time_elapsed
-    
-    def reset(self):
-        self.running = False
-        self.time_elapsed = 0
-        self.time_started = 0
+from stopwatch import Stopwatch as Timer
 
 activity_timers = dict()
 last_activity = "productive"
@@ -41,6 +16,8 @@ activities["website"]
 """
 for activity in activities:
     activity_timers[activity] = Timer()
+    activity_timers[activity].reset()
+
 
 start_time = time.time()
 
@@ -52,9 +29,9 @@ while True:
     time.sleep(random.random() * 3)
     total = 0
     for activity, timer in activity_timers.items():
-        val = timer.value()
+        val = timer.duration
         total += val
-        # print(str(activity) + ": " + str(val))
+        print(str(activity) + ": " + str(val))
     print(total)
     print("time elapsed: " + str(time.time() - start_time))
     print("\n\n")
