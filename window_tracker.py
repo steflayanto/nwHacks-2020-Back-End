@@ -2,10 +2,13 @@ import pygetwindow as gw
 import time, threading
 from util.activity_tracker import ActivityTracker
 from collections import Counter
+import json, requests
 
 total_tracker = Counter()
 
 tracker = ActivityTracker()
+
+url = "https://httpbin.org/post"
 
 def update_tracker(top_window):
     known_apps = [' - visual studio code', ' - word', ' - one note', ' - powerpoint', ' - notepad', ' - foxit reader']
@@ -37,20 +40,23 @@ def update_tracker(top_window):
         else:
             tracker.start_activity(top_window)
 
-def update_total_tracker():
-    print("Updating to total tracker")    
-    total_tracker.update(tracker.get_activities_dict())
-    tracker.clear()
-    print(total_tracker)
-
 prev_window = None
 update_timer = time.time()
 
 
 while True:
     if time.time() - update_timer > 10:
-        update_total_tracker()
         update_timer = time.time()
+
+        print("Updating to total tracker")
+        activities_dict = tracker.get_activities_dict()
+        total_tracker.update(activities_dict)
+        tracker.clear()
+        print(total_tracker)
+        
+        print("Sending Json")
+        r = requests.post(url, data=json.dumps(activities_dict))
+        print(r.text)
     
     window = gw.getActiveWindow()
     if not window or not window.title:
