@@ -1,7 +1,7 @@
 import pyaudio
 import wave, audioop, math
 
-class Ambient_Noise:
+class AmbientNoise:
     
     CHUNK = 1024
     FORMAT = pyaudio.paInt16
@@ -50,7 +50,7 @@ class Ambient_Noise:
         wf.writeframes(b''.join(self.frames))
         wf.close()
 
-recorder = Ambient_Noise()
+recorder = AmbientNoise()
 
 print(recorder.read())
     
