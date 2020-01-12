@@ -43,3 +43,17 @@ class ActivityTracker:
         for activity, timer in self.activities.items():
             print(activity + ": " + str(timer.duration))
         print("\n")
+    
+    # Returns a dictionary of activity -> times (not activity -> timer)
+    def get_activities_dict(self):
+        output = dict()
+        for activity in self.activities.keys():
+            output[activity] = self.activities[activity].duration
+    
+    def add_all(self, other_dict):
+        for activity in other_dict.keys():
+            # Initialize activity if not yet seen
+            if activity not in self.activities.keys():
+                self.activities[activity] = 0
+
+            self.activities[activity] += other_dict[activity]
