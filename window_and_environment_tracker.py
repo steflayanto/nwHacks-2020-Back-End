@@ -13,7 +13,7 @@ total_tracker = Counter()
 tracker = ActivityTracker()
 
 # url = "https://httpbin.org/post"
-url = r"http://localhost:5000"
+url = r"http://localhost:5000/data"
 
 def update_tracker(top_window):
     known_apps = [' - visual studio code', ' - word', ' - one note', ' - powerpoint', ' - notepad', ' - foxit reader']
@@ -74,7 +74,7 @@ while True:
         print("Getting ambient noise")
         db = mic.read()
         data["noise"] = db
-
+        """
         print("Getting ambient light")
         cap = cv2.VideoCapture(0)
         assert cap.isOpened()
@@ -83,10 +83,13 @@ while True:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             data["light"] = cv2.mean(gray)[0]
         cap.release()
+"""     
+        data["light"] = 221
 
         print("Sending Json")
+
         try:
-            headers = {'Content-type': 'application/json'};
+            headers = {'Content-type': 'application/json'}
             r = requests.post(url, data=json.dumps(data), headers=headers)
             print(json.dumps(data))
         except:

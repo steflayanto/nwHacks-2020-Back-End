@@ -10,6 +10,7 @@ import imutils
 import time
 import dlib
 import cv2
+import requests, json
 
 # Check if a point is inside a rectangle
 def rect_contains(rect, point) :
@@ -239,11 +240,19 @@ while True:
 		# visualize each of the eyes
 		leftEyeHull = cv2.convexHull(leftEye)
 		rightEyeHull = cv2.convexHull(rightEye)
-		cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
-		cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
+		cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 128), 1)
+		cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 128), 1)
 
-	if time.time() - last_iteration > 1:
-		tracker.print_activities()
+	if time.time() - last_iteration > 10:
+		try:
+			url = r"http://localhost:5000/data"
+			headers = {'Content-type': 'application/json'}
+			r = requests.post(url, data=json.dumps(tracker.get_activities_dict()), headers=headers)
+			print("Posted")
+		except:
+			print("Failed to post")
+
+		tracker.clear()
 		last_iteration = time.time()
 
 	# show the frame
